@@ -1,12 +1,10 @@
 package jd;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,68 +20,73 @@ public class ReptileThread implements Runnable {
         this.jdReptile = jdReptile;
     }
 
+    /**
+     * 爬虫线程体
+     *
+     * 1. 从未爬取 url 队列中获取一个 url，
+     * 如果 该url 是商品地址，即形如 "http(https)://item.jd.com/xxx.html",
+     * 先爬取该 url 页面，进行商品信息解析。
+     *
+     * 2. 接着进一步爬取 url
+     */
     @Override
     public void run() {
         while (true) {
-            String url = jdReptile.getUrl();
-
-            if (url != null) {
-                crawler(url);
-            } else {
-                // TODO 无需要爬取的 URL
-            }
-        }
-    }
-
-    public void crawler(String sUrl) {
-        URL url;
-        InputStream in = null;
-        try {
-            url = new URL(sUrl);
-            URLConnection urlConnection = url.openConnection();
-            urlConnection.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
-            in = url.openStream();
-            BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(in));
-            StringBuffer sb = new StringBuffer();
-            String line = null;
-            while ((line = bufferedReader.readLine()) != null) {
-                sb.append(line);
-            }
-
-            parseContent(sb.toString(), sUrl);
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
+            String urlStr = jdReptile.getUrl();
+            if (urlStr != null) {
+                Pattern itemPattern = Pattern.compile(
+                        "(http|https)://item\56jd\56com/(.*?)\56html/?");
+                Matcher itemMatcher = itemPattern.matcher(urlStr);
+                if (itemMatcher.find()) {
+//                    new JDBean().parseContext(urlStr);
+                    System.out.println(urlStr);
                 }
+                crawler(urlStr);
+            } else {
+                // TODO 无未爬取的 URL
             }
         }
     }
 
-    public void parseContent(String context, String url) {
-        Pattern itemPattern = Pattern.compile("http://item\56jd\56com/.*?\56html"); // TODO https
-        Matcher itemMatcher = itemPattern.matcher(url);
-        if (itemMatcher.find() && itemMatcher.group(1) != null) {
-//            JDBean commodity = new JDBean(context, url);
+    /**
+     * 进一步爬取 url
+     *
+     * @param urlStr url 字符串
+     */
+    public void crawler(String urlStr) {
+        String pageContent = JDReptile.getPageContentFromUrl(urlStr);
+        Document doc = Jsoup.parse(pageContent);
+        Elements links = doc.select("a[href]");
+        String moreUrlStr = null;
+        for (Element link : links) {
+            if ((moreUrlStr = link.attr("abs:href")) != null && !moreUrlStr.isEmpty()) {
+                jdReptile.addUrl(moreUrlStr);
+            }
         }
+    }
 
-        String hrefRegex = "href=\"//.*?\"";
-        Pattern hrefPattern = Pattern.compile(hrefRegex);
-        Matcher hrefMatcher = hrefPattern.matcher(context);
-        while (hrefMatcher.find()) {
-            String otherUrl = hrefMatcher.group().replaceAll("href=\"|http:|https:|\"", "");
-            otherUrl = "http:" + otherUrl;    // TODO https
+    public void parseContent(String content, String urlStr) {
+        if (content != null) {
+            String aRegex = "<a(.*?)href=\"//(.*?)\56jd\56com/(.*?)\"(.*?)>(.*?)</a>";
+            Pattern aPattern = Pattern.compile(aRegex);
+            Matcher aMatcher = aPattern.matcher(content);
+            while (aMatcher.find()) {
+                String hrefRegex = "href=\"//(.*?).jd.com/(.*?)\"";
+                Pattern hrefPattern = Pattern.compile(hrefRegex);
+                Matcher hrefMatcher = hrefPattern.matcher(aMatcher.group());
+                if (hrefMatcher.find()) {
+                    String otherUrl = hrefMatcher.group().replaceAll("href=\"|http:|https:|\"", "");
+                    otherUrl = "http:" + otherUrl;    // TODO https
 
-            // 未被爬到的 URL
-            if (!jdReptile.containUrl(otherUrl)) {
-                jdReptile.addUrl(otherUrl);
+                    // 未被爬到的 URL
+                    if (!jdReptile.containUrl(otherUrl)) {
+//                        System.out.println(otherUrl);
+                        jdReptile.addUrl(otherUrl);
+                /*synchronized (JDReptile.class) {
+                    notify();
+                }*/
+                    }
+                }
             }
         }
     }

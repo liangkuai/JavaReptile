@@ -1,11 +1,8 @@
 package jd;
 
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,20 +24,17 @@ public class JDBean {
 
     public static void main(String[] args) {
         JDBean jdBean = new JDBean();
-        jdBean.parseContext("", "https://item.jd.com/3133817.html#none");
+        jdBean.parseContext("https://item.jd.com/3133817.html#none");
     }
 
     public JDBean() {
-
     }
 
-    public void parseContext(String context, String url) {
-        this.url = url;
-        Pattern pattern;
-        Matcher matcher;
+    public void parseContext(String urlStr) {
+        this.url = urlStr;
 
-        pattern = Pattern.compile("item\56jd\56com/(.*?)\56html");
-        matcher = pattern.matcher(url);
+        Pattern pattern = Pattern.compile("item\56jd\56com/(.*?)\56html");
+        Matcher matcher = pattern.matcher(url);
 
         if (matcher.find()) {
             this.number = matcher.group(1);
@@ -52,22 +46,20 @@ public class JDBean {
             //由商品编号查评论
             String getCommentUrl = "http://club.jd.com/productpage/p-" + number + "-s-0-t-3-p-0.html";
             getCommentFromUrl(getCommentUrl);
+
+//            System.out.println("number: " + number + ", price: " + price);
         }
     }
 
-    public void getPriceFromUrl(String url) {
-        CloseableHttpClient priceClient = HttpClients.createDefault();
-        HttpGet get = new HttpGet();
-        try {
-            get.setURI(new URI(url));
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
-
+    public void getPriceFromUrl(String urlStr) {
+        String priceContent = JDReptile.getPageContentFromUrl(urlStr);
+        JSONArray priceJson = JSON.parseArray(priceContent);
+        double price = priceJson.getJSONObject(0).getDouble("p");
+        this.setPrice(price);
     }
 
-    public void getCommentFromUrl(String url) {
-
+    public void getCommentFromUrl(String urlStr) {
+        String commentContent = JDReptile.getPageContentFromUrl(urlStr);
     }
 
 
