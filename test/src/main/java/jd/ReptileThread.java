@@ -23,7 +23,7 @@ public class ReptileThread implements Runnable {
     /**
      * 爬虫线程体
      *
-     * 1. 从未爬取 url 队列中获取一个 url，
+     * 1. 从未爬取过的 url 队列中获取一个 url，
      * 如果 该url 是商品地址，即形如 "http(https)://item.jd.com/xxx.html",
      * 先爬取该 url 页面，进行商品信息解析。
      *
@@ -35,10 +35,10 @@ public class ReptileThread implements Runnable {
             String urlStr = jdReptile.getUrl();
             if (urlStr != null) {
                 Pattern itemPattern = Pattern.compile(
-                        "(http|https)://item\56jd\56com/(.*?)\56html/?");
+                        "(http|https)://item\56jd\56com/(.+?)\56html/?");
                 Matcher itemMatcher = itemPattern.matcher(urlStr);
                 if (itemMatcher.find()) {
-//                    new JDBean().parseContext(urlStr);
+                    new Item().parseItemPage(urlStr);
                     System.out.println(urlStr);
                 }
                 crawler(urlStr);
@@ -54,7 +54,7 @@ public class ReptileThread implements Runnable {
      * @param urlStr url 字符串
      */
     public void crawler(String urlStr) {
-        String pageContent = JDReptile.getPageContentFromUrl(urlStr);
+        String pageContent = HttpTool.getPageContentFromUrl(urlStr);
         Document doc = Jsoup.parse(pageContent);
         Elements links = doc.select("a[href]");
         String moreUrlStr = null;
@@ -76,16 +76,7 @@ public class ReptileThread implements Runnable {
                 Matcher hrefMatcher = hrefPattern.matcher(aMatcher.group());
                 if (hrefMatcher.find()) {
                     String otherUrl = hrefMatcher.group().replaceAll("href=\"|http:|https:|\"", "");
-                    otherUrl = "http:" + otherUrl;    // TODO https
-
-                    // 未被爬到的 URL
-                    if (!jdReptile.containUrl(otherUrl)) {
-//                        System.out.println(otherUrl);
-                        jdReptile.addUrl(otherUrl);
-                /*synchronized (JDReptile.class) {
-                    notify();
-                }*/
-                    }
+                    otherUrl = "http:" + otherUrl;
                 }
             }
         }

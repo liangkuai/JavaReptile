@@ -4,12 +4,10 @@ package jd;
  * Created by liangkuai on 2017/4/5.
  */
 
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,10 +17,11 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,19 +31,16 @@ import java.util.regex.Pattern;
 public class JDReptile {
 
     private Set<String> allUrl;
-    private LinkedList<String> noCrawlerUrl;
+    private Queue<String> noCrawlerUrl;
     private ExecutorService threadPool;
 
-    public static void main(String[] args) {
-        JDReptile jdReptile = new JDReptile();
-        jdReptile.parseHomePage("https://www.jd.com/");
-        jdReptile.begin();
-    }
-
+    /**
+     * TODO allUrl 考虑: TreeSet
+     */
     public JDReptile() {
-        allUrl = new HashSet<>();
-        noCrawlerUrl = new LinkedList<>();
-        threadPool = Executors.newCachedThreadPool();
+        this.allUrl = new HashSet<>();
+        this.noCrawlerUrl = new LinkedBlockingQueue<>();
+        this.threadPool = Executors.newCachedThreadPool();
     }
 
     public void begin() {
@@ -55,13 +51,63 @@ public class JDReptile {
 
     /**
      * 解析首页
-     * 缩小范围，尽量选出分类
-     *
-     * TODO 不做挑选，对所有链接进行爬取
      *
      * @param urlStr 根路径
      */
     public void parseHomePage(String urlStr) {
+        String homePageContent = HttpTool.getPageContentFromUrl(urlStr);
+
+        Document doc = Jsoup.parse(homePageContent);
+        Elements links = doc.select("a[href]");
+        String moreUrlStr;
+        for (Element link : links) {
+            if ((moreUrlStr = link.attr("abs:href")) != null && !moreUrlStr.isEmpty()) {
+                this.addUrl(moreUrlStr);
+            }
+        }
+    }
+
+    // TODO 同步?
+    public boolean containUrl(String url) {
+        return allUrl.contains(url);
+    }
+
+    /**
+     * 爬取到 URL
+     * 1. 添加到爬取过的 URL 集合中
+     * 2. 添加到未爬取过的 URL 队列中
+     *
+     * @param urlStr 添加 URL 即未被爬到的 URL
+     */
+    public void addUrl(String urlStr) {
+        synchronized (this) {
+            this.allUrl.add(urlStr);
+        }
+
+        // TODO LinkedBlockingQueue 未设置容量上限，暂未考虑阻塞队列满的情况
+        if (!this.noCrawlerUrl.offer(urlStr)) {
+
+            // fixme 阻塞队列满，插入元素失败处理
+        }
+    }
+
+    /**
+     * 从未爬取过的 URL 队列中获取队列头
+     *
+     * @return 未爬取过的 URL 队列的第一个 URL
+     */
+    public String getUrl() {
+        return noCrawlerUrl.poll();
+    }
+
+
+    /**
+     * 爬取首页，解析
+     * 缩小范围，尽量选出分类
+     *
+     * @param urlStr 首页 URL
+     */
+    public void parseHomePageByJava(String urlStr) {
         InputStream inputStream = null;
         try {
             URL homeUrl = new URL(urlStr);
@@ -76,10 +122,8 @@ public class JDReptile {
             while ((line = bufferedReader.readLine()) != null) {
                 homePageStr.append(line);
             }
-//            System.out.println(homePageStr);
 
-            String hrefRegex = "href=\"(.*?)\"";   // 链接属性(152)
-//            String hrefRegex = "href=\".*?\".*?>.*?<";   // 链接属性(152)
+            String hrefRegex = "href=\"(.*?)\"";
             Pattern hrefPattern = Pattern.compile(hrefRegex);
             Matcher hrefMatcher = hrefPattern.matcher(homePageStr.toString());
             while (hrefMatcher.find()) {
@@ -111,61 +155,6 @@ public class JDReptile {
                 }
             }
         }
-    }
-
-    public static String getPageContentFromUrl(String urlStr) {
-        HttpEntity entity = null;
-        try {
-            CloseableHttpClient httpclient = HttpClients.createDefault();
-            HttpGet request = new HttpGet(urlStr);
-            request.setHeader("User-Agent",
-                    "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36");
-            CloseableHttpResponse response = httpclient.execute(request);
-
-            entity = response.getEntity();
-            InputStream inputStream = entity.getContent();
-            BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(inputStream, "utf-8"));
-            StringBuilder contentOfUrl = new StringBuilder();
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                contentOfUrl.append(line);
-            }
-            return contentOfUrl.toString();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        } finally {
-            try {
-                EntityUtils.consume(entity);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    // TODO 同步?
-    public boolean containUrl(String url) {
-        return allUrl.contains(url);
-    }
-
-    /**
-     * 同步
-     *
-     * TODO 考虑使用并发集合
-     *
-     * @param urlStr 添加 URL 即未被爬到的 URL
-     */
-    public synchronized void addUrl(String urlStr){
-        allUrl.add(urlStr);
-        noCrawlerUrl.add(urlStr);
-    }
-
-    public synchronized String getUrl() {
-        if (!noCrawlerUrl.isEmpty()) {
-            return noCrawlerUrl.poll();
-        } else
-            return null;
     }
 
 }
