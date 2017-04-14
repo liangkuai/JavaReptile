@@ -56,12 +56,16 @@ public class JDReptile {
      */
     public void parseHomePage(String urlStr) {
         String homePageContent = HttpTool.getPageContentFromUrl(urlStr);
+        if (homePageContent == null) {
+            return;
+        }
 
         Document doc = Jsoup.parse(homePageContent);
         Elements links = doc.select("a[href]");
         String moreUrlStr;
         for (Element link : links) {
-            if ((moreUrlStr = link.attr("abs:href")) != null && !moreUrlStr.isEmpty()) {
+            if ((moreUrlStr = link.attr("abs:href")) != null
+                    && !moreUrlStr.isEmpty()) {
                 this.addUrl(moreUrlStr);
             }
         }

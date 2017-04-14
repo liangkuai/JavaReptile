@@ -28,8 +28,8 @@ public class Item {
 
     public static void main(String[] args) {
         Item jdBean = new Item();
-//        jdBean.parseItemPage("https://item.jd.com/1057746.html");
-        jdBean.parseItemPage("https://item.jd.com/3726844.html");
+        jdBean.parseItemPage("https://item.jd.com/1057746.html");
+//        jdBean.parseItemPage("https://item.jd.com/3726844.html");
 //        jdBean.parseItemPage("https://item.jd.com/547774.html");
 //        jdBean.parseItemPage("https://item.jd.com/12086464.html");
     }
@@ -52,7 +52,7 @@ public class Item {
         Document doc = Jsoup.parse(pageContent);
         Elements itemNameType1 = doc.getElementsByTag("h1");
         Elements itemNameType2 = doc.select("div.sku-name");
-        Elements itemDesLis;
+        Elements itemDesLis = null;
         if (itemNameType1 != null && itemNameType1.size() > 0) {
             // 商品名
             this.name = itemNameType1.get(0).text();
@@ -63,7 +63,9 @@ public class Item {
 
             // 商品详情
             Element itemDesUl = doc.getElementById("parameter2");
-            itemDesLis =  itemDesUl.select("li");
+            if (itemDesUl != null) {
+                itemDesLis = itemDesUl.select("li");
+            }
         } else {
             this.name = itemNameType2.get(0).text();
 
@@ -76,11 +78,8 @@ public class Item {
             itemDesLis =  itemDesUls.get(0).select("li");
         }
         JSONObject itemDesJson = new JSONObject();
-        for (Element li : itemDesLis) {
-            Elements liA = li.select("a");
-            if (liA != null && liA.size() > 0) {
-                itemDesJson.put(liA.get(0).text(), li.attr("title"));
-            } else {
+        if (itemDesLis != null) {
+            for (Element li : itemDesLis) {
                 String[] liKeyValue = li.text().split("：");
                 itemDesJson.put(liKeyValue[0], liKeyValue[1]);
             }
@@ -91,11 +90,8 @@ public class Item {
 
         // 商品品牌
         Element itemBrand = doc.getElementById("parameter-brand");
-        this.brand = itemBrand.select("li a").get(0).text();
-
-        System.out.println(name);
-        System.out.println(image);
-        System.out.println(brand);
+        if (itemBrand != null)
+            this.brand = itemBrand.select("li a").get(0).text();
 
         Pattern pattern = Pattern.compile("item\56jd\56com/(.+?)\56html");
         Matcher matcher = pattern.matcher(url);
@@ -111,6 +107,14 @@ public class Item {
             String getCommentUrl = "http://club.jd.com/productpage/p-" + number + "-s-0-t-3-p-0.html";
             getCommentFromUrl(getCommentUrl);
         }
+
+        System.out.println(name);
+        System.out.println(image);
+        System.out.println(brand);
+        System.out.println(description);
+        System.out.println(price);
+        System.out.println(commentCount);
+        System.out.println(goodRate);
     }
 
     public void getPriceFromUrl(String urlStr) {

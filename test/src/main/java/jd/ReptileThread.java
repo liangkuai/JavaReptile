@@ -38,8 +38,8 @@ public class ReptileThread implements Runnable {
                         "(http|https)://item\56jd\56com/(.+?)\56html/?");
                 Matcher itemMatcher = itemPattern.matcher(urlStr);
                 if (itemMatcher.find()) {
-                    new Item().parseItemPage(urlStr);
                     System.out.println(urlStr);
+                    new Item().parseItemPage(urlStr);
                 }
                 crawler(urlStr);
             } else {
