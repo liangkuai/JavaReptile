@@ -2,12 +2,15 @@ package jd;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
+import jd.log.MyLogger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,8 +19,10 @@ import java.util.regex.Pattern;
  */
 public class Item {
 
+    private static final Logger LOG = MyLogger.getLogger(Item.class.getName());
+
     private String url;         // url
-    private String number;      // 编号
+    private String id;      // 编号
     private String image;       // 主图
     private String name;        // 名称
     private String brand;       // 品牌
@@ -27,14 +32,13 @@ public class Item {
     private double goodRate;    // 好评率
 
     public static void main(String[] args) {
-        Item jdBean = new Item();
-        jdBean.parseItemPage("https://item.jd.com/1057746.html");
-//        jdBean.parseItemPage("https://item.jd.com/3726844.html");
-//        jdBean.parseItemPage("https://item.jd.com/547774.html");
-//        jdBean.parseItemPage("https://item.jd.com/12086464.html");
+        Item.parseItemPage("https://item.jd.com/1057746.html");
+//        Item.parseItemPage("https://item.jd.com/3726844.html");
+//        Item.parseItemPage("https://item.jd.com/547774.html");
+//        Item.parseItemPage("https://item.jd.com/12086464.html");
     }
 
-    public Item() {
+    private Item() {
     }
 
     /**
@@ -44,98 +48,202 @@ public class Item {
      *
      * @param urlStr 商品 URL
      */
-    public void parseItemPage(String urlStr) {
-        this.url = urlStr;
+    public static Item parseItemPage(String urlStr) {
+        Item item = new Item();
+        item.setUrl(urlStr);
 
         String pageContent = HttpTool.getPageContentFromUrl(urlStr);
+        if (pageContent == null || pageContent.isEmpty()) {
+            return null;
+        }
 
         Document doc = Jsoup.parse(pageContent);
-        Elements itemNameType1 = doc.getElementsByTag("h1");
-        Elements itemNameType2 = doc.select("div.sku-name");
-        Elements itemDesLis = null;
+        Elements itemNameType1 = doc.select("div.sku-name");
+        Elements itemNameType2 = doc.getElementsByTag("h1");
         if (itemNameType1 != null && itemNameType1.size() > 0) {
-            // 商品名
-            this.name = itemNameType1.get(0).text();
+            item.setName(itemNameType1.get(0).text());
 
             // 商品主图
-            Elements itemImage = doc.select("img[data-img]");
-            this.image = itemImage.get(0).attr("src");
+            item.setImage(Item.getImageFromDocument1(doc));
 
             // 商品详情
-            Element itemDesUl = doc.getElementById("parameter2");
-            if (itemDesUl != null) {
-                itemDesLis = itemDesUl.select("li");
-            }
+            item.setDescription(Item.getDescFromDocument1(doc));
         } else {
-            this.name = itemNameType2.get(0).text();
+            // 商品名
+            item.setName(itemNameType2.get(0).text());
 
             // 商品主图
-            Element itemImage = doc.getElementById("spec-img");
-            this.image = itemImage.attr("data-origin");
+            item.setImage(Item.getImageFromDocument2(doc));
 
             // 商品详情
-            Elements itemDesUls = doc.select("ul.parameter2");
-            itemDesLis =  itemDesUls.get(0).select("li");
+            item.setDescription(Item.getDescFromDocument2(doc));
         }
-        JSONObject itemDesJson = new JSONObject();
-        if (itemDesLis != null) {
-            for (Element li : itemDesLis) {
-                String[] liKeyValue = li.text().split("：");
-                itemDesJson.put(liKeyValue[0], liKeyValue[1]);
-            }
-        }
-        this.description = itemDesJson.toJSONString();
 
-        this.image = "https:" + this.image;
+        // 设置商品品牌
+        item.setBrand(Item.getBrandFromDocument(doc));
 
-        // 商品品牌
-        Element itemBrand = doc.getElementById("parameter-brand");
-        if (itemBrand != null)
-            this.brand = itemBrand.select("li a").get(0).text();
-
+        // 设置商品价格和评价信息
         Pattern pattern = Pattern.compile("item\56jd\56com/(.+?)\56html");
-        Matcher matcher = pattern.matcher(url);
-
+        Matcher matcher = pattern.matcher(urlStr);
         if (matcher.find()) {
-            this.number = matcher.group(1);
+            String itemId = matcher.group(1);
+            item.setId(itemId);
 
             //由商品编号查价格
-            String getPriceUrl = "http://p.3.cn/prices/mgets?skuIds=J_" + number + ",J_&type=1";
-            getPriceFromUrl(getPriceUrl);
+            String getPriceUrl = "http://p.3.cn/prices/mgets?skuIds=J_" + itemId + ",J_&type=1";
+            Double itemPrice = Item.getPriceFromUrl(getPriceUrl);
+            if (itemPrice != null) {
+                item.setPrice(itemPrice);
+            } else {
+                item.setPrice(0.0);
+            }
 
             //由商品编号查评论
-            String getCommentUrl = "http://club.jd.com/productpage/p-" + number + "-s-0-t-3-p-0.html";
-            getCommentFromUrl(getCommentUrl);
+            String getCommentUrl = "http://club.jd.com/productpage/p-" + itemId + "-s-0-t-3-p-0.html";
+            String comment = Item.getCommentFromUrl(getCommentUrl);
+            if (comment != null && !comment.isEmpty()) {
+                JSONObject commentJson = JSON.parseObject(comment);
+                item.setGoodRate(commentJson.getDouble("goodRate"));
+                item.setCommentCount(commentJson.getInteger("commentCount"));
+            } else {
+                item.setGoodRate(1.0);
+                item.setCommentCount(0);
+            }
+        } else {
+            item.setId("无");
+            item.setPrice(0.0);
+            item.setGoodRate(1.0);
+            item.setCommentCount(0);
         }
 
-        System.out.println(name);
-        System.out.println(image);
-        System.out.println(brand);
-        System.out.println(description);
-        System.out.println(price);
-        System.out.println(commentCount);
-        System.out.println(goodRate);
+        return item;
     }
 
-    public void getPriceFromUrl(String urlStr) {
+    private static String getDescFromDocument1(Document doc) {
+        Elements itemDescUls = doc.select("ul.parameter2");
+        if (itemDescUls != null) {
+            Elements itemDescLis = itemDescUls.get(0).select("li");
+            JSONObject itemDescJson = new JSONObject();
+            if (itemDescLis != null && itemDescLis.size() > 0) {
+                for (Element li : itemDescLis) {
+                    String[] liKeyValue = li.text().split("：");
+                    itemDescJson.put(liKeyValue[0], liKeyValue[1]);
+                }
+                return itemDescJson.toJSONString();
+            }
+        }
+        return "无";
+    }
+
+    private static String getDescFromDocument2(Document doc) {
+        Element itemDescUl = doc.getElementById("parameter2");
+        if (itemDescUl != null) {
+            Elements itemDescLis = itemDescUl.select("li");
+            JSONObject itemDescJson = new JSONObject();
+            if (itemDescLis != null && itemDescLis.size() > 0) {
+                for (Element li : itemDescLis) {
+                    String[] liKeyValue = li.text().split("：");
+                    itemDescJson.put(liKeyValue[0], liKeyValue[1]);
+                }
+                return itemDescJson.toJSONString();
+            }
+        }
+        return "无";
+    }
+
+    private static String getImageFromDocument1(Document doc) {
+        Element itemImageElement = doc.getElementById("spec-img");
+        if (itemImageElement != null) {
+            String image = itemImageElement.attr("data-origin");
+            if (image != null && !image.isEmpty()) {
+                return "https:" + image;
+            }
+        }
+        return "无";
+    }
+
+    private static String getImageFromDocument2(Document doc) {
+        Elements itemImageElement = doc.select("img[data-img]");
+        if (itemImageElement != null && itemImageElement.size() > 0) {
+            String image = itemImageElement.get(0).attr("src");
+            if (image != null && !image.isEmpty()) {
+                return "https:" + image;
+            }
+        }
+        return "无";
+    }
+
+    /**
+     * 从 Document 对象中获取商品品牌
+     * @param doc Jsoup 创建 Document 对象
+     * @return 品牌
+     */
+    private static String getBrandFromDocument(Document doc) {
+        Element itemBrand = doc.getElementById("parameter-brand");
+        if (itemBrand != null) {
+            String brand = itemBrand.select("li a").get(0).text();
+            if (brand != null && !brand.isEmpty()) {
+                return brand;
+            }
+        }
+        return "无";
+    }
+
+    /**
+     * 从 URL 中获取价格
+     * @param urlStr 商品 URL
+     * @return 价格
+     */
+    private static Double getPriceFromUrl(String urlStr) {
         String priceContent = HttpTool.getPageContentFromUrl(urlStr);
-        JSONArray priceJsonArray = JSON.parseArray(priceContent);
-        double price = priceJsonArray.getJSONObject(0).getDouble("p");
-        this.price = price;
+        if (priceContent == null || priceContent.isEmpty()) {
+            return null;
+        }
+
+        try {
+            JSONArray priceJsonArray = JSON.parseArray(priceContent);
+            return priceJsonArray.getJSONObject(0).getDouble("p");
+        } catch (JSONException e) {
+            LOG.severe("JSON 解析错误");
+            return null;
+        }
     }
 
-    public void getCommentFromUrl(String urlStr) {
+    /**
+     * 从 URL 中获取评价信息
+     * @param urlStr 商品 URL
+     * @return 评价信息
+     */
+    private static String getCommentFromUrl(String urlStr) {
         String commentContent = HttpTool.getPageContentOfLineFromUrl(urlStr);
-        JSONObject commentJson = JSON.parseObject(commentContent);
-        JSONObject commentSummary = commentJson.getJSONObject("productCommentSummary");
-        //总评价数
-        int commentCount = commentSummary.getInteger("commentCount");
-        //好评率
-        double goodRate = commentSummary.getDouble("goodRate");
-        this.commentCount = commentCount;
-        this.goodRate = goodRate;
+        if (commentContent == null || commentContent.isEmpty()) {
+            return null;
+        }
+
+        try {
+            JSONObject commentJson = JSON.parseObject(commentContent);
+            JSONObject comment = commentJson.getJSONObject("productCommentSummary");
+            return comment.toJSONString();
+        } catch (JSONException e) {
+            LOG.severe("JSON 解析错误");
+            return null;
+        }
     }
 
+    @Override
+    public String toString() {
+        JSONObject itemJson = new JSONObject();
+        itemJson.put("url", this.url);
+        itemJson.put("id", this.id);
+        itemJson.put("name", this.name);
+        itemJson.put("image", this.image);
+        itemJson.put("brand", this.brand);
+        itemJson.put("price", this.price);
+        itemJson.put("description", this.description);
+        itemJson.put("commentCount", this.commentCount);
+        itemJson.put("goodRate", this.goodRate);
+        return itemJson.toJSONString();
+    }
 
     public String getUrl() {
         return url;
@@ -145,12 +253,12 @@ public class Item {
         this.url = url;
     }
 
-    public String getNumber() {
-        return number;
+    public String getId() {
+        return id;
     }
 
-    public void setNumber(String number) {
-        this.number = number;
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getImage() {
@@ -189,7 +297,7 @@ public class Item {
         return description;
     }
 
-    public void setDetail(String description) {
+    public void setDescription(String description) {
         this.description = description;
     }
 

@@ -4,11 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>liangkuai.repitle.java</groupId>
-    <artifactId>test</artifactId>
+    <groupId>liangkuai</groupId>
+    <artifactId>java.reptile</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <slf4j-api.version>1.7.25</slf4j-api.version>
+        <log4j.version>2.8.2</log4j.version>
         <httpclient.version>4.5.2</httpclient.version>
         <jsoup.version>1.9.2</jsoup.version>
         <fastjson.version>1.2.24</fastjson.version>
@@ -17,6 +21,31 @@
     </properties>
 
     <dependencies>
+        <!--slf4j-->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j-api.version}</version>
+        </dependency>
+
+        <!--log4j-->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>${log4j.version}</version>
+            <!--<scope>test</scope>-->
+        </dependency>
+
         <!--httpclient-->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>

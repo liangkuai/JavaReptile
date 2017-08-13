@@ -38,8 +38,13 @@ public class ReptileThread implements Runnable {
                         "(http|https)://item\56jd\56com/(.+?)\56html/?");
                 Matcher itemMatcher = itemPattern.matcher(urlStr);
                 if (itemMatcher.find()) {
-                    System.out.println(urlStr);
-                    new Item().parseItemPage(urlStr);
+//                    System.out.println(urlStr);
+                    Item item = Item.parseItemPage(urlStr);
+
+                    // TODO 数据存储
+                    if (item != null) {
+                        System.out.println(item.toString());
+                    }
                 }
                 crawler(urlStr);
             } else {
@@ -55,12 +60,18 @@ public class ReptileThread implements Runnable {
      */
     public void crawler(String urlStr) {
         String pageContent = HttpTool.getPageContentFromUrl(urlStr);
+        if (pageContent == null || pageContent.isEmpty()) {
+            return;
+        }
+
         Document doc = Jsoup.parse(pageContent);
         Elements links = doc.select("a[href]");
-        String moreUrlStr = null;
+        String moreUrlStr;
         for (Element link : links) {
             if ((moreUrlStr = link.attr("abs:href")) != null && !moreUrlStr.isEmpty()) {
-                jdReptile.addUrl(moreUrlStr);
+                if (! jdReptile.containUrl(moreUrlStr)) {
+                    jdReptile.addUrl(moreUrlStr);
+                }
             }
         }
     }

@@ -56,7 +56,7 @@ public class JDReptile {
      */
     public void parseHomePage(String urlStr) {
         String homePageContent = HttpTool.getPageContentFromUrl(urlStr);
-        if (homePageContent == null) {
+        if (homePageContent == null || homePageContent.isEmpty()) {
             return;
         }
 
@@ -66,13 +66,15 @@ public class JDReptile {
         for (Element link : links) {
             if ((moreUrlStr = link.attr("abs:href")) != null
                     && !moreUrlStr.isEmpty()) {
-                this.addUrl(moreUrlStr);
+                if (!containUrl(urlStr)) {
+                    this.addUrl(moreUrlStr);
+                }
             }
         }
     }
 
     // TODO 同步?
-    public boolean containUrl(String url) {
+    public synchronized boolean containUrl(String url) {
         return allUrl.contains(url);
     }
 
