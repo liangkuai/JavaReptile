@@ -1,4 +1,4 @@
-package jd.log;
+package log;
 
 import com.alibaba.fastjson.JSONObject;
 

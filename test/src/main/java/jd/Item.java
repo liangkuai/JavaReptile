@@ -4,13 +4,11 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
-import jd.log.MyLogger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,8 +16,6 @@ import java.util.regex.Pattern;
  * Created by liangkuai on 2017/4/10.
  */
 public class Item {
-
-    private static final Logger LOG = MyLogger.getLogger(Item.class.getName());
 
     private String url;         // url
     private String id;      // 编号
@@ -204,7 +200,7 @@ public class Item {
             JSONArray priceJsonArray = JSON.parseArray(priceContent);
             return priceJsonArray.getJSONObject(0).getDouble("p");
         } catch (JSONException e) {
-            LOG.severe("JSON 解析错误");
+//            LOG.severe("JSON 解析错误");
             return null;
         }
     }
@@ -225,7 +221,7 @@ public class Item {
             JSONObject comment = commentJson.getJSONObject("productCommentSummary");
             return comment.toJSONString();
         } catch (JSONException e) {
-            LOG.severe("JSON 解析错误");
+//            LOG.severe("JSON 解析错误");
             return null;
         }
     }

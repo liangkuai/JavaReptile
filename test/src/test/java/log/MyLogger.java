@@ -1,4 +1,4 @@
-package jd.log;
+package log;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;

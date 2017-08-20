@@ -1,6 +1,5 @@
 package jd;
 
-import jd.log.MyLogger;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -12,7 +11,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.logging.Logger;
 
 /**
  * Created by liangkuai on 2017/4/10.
@@ -20,8 +18,6 @@ import java.util.logging.Logger;
 
 
 public class HttpTool {
-
-    private static final Logger LOG = MyLogger.getLogger(HttpTool.class.getName());
 
     public static String getPageContentFromUrl(String urlStr) {
         if (urlStr == null)
@@ -46,10 +42,10 @@ public class HttpTool {
             }
             return contentOfUrl.toString();
         } catch (IllegalArgumentException e) {
-            LOG.severe("URL: " + urlStr + ", URL 语法错误");
+//            LOG.severe("URL: " + urlStr + ", URL 语法错误");
             return null;
         } catch (IOException e) {
-            LOG.severe("URL: " + urlStr + ", 无法访问该 URL");
+//            LOG.severe("URL: " + urlStr + ", 无法访问该 URL");
             return null;
         } finally {
             try {
@@ -78,10 +74,10 @@ public class HttpTool {
                     new InputStreamReader(inputStream, "gbk"));
             return bufferedReader.readLine();
         } catch (IllegalArgumentException e) {
-            LOG.severe("URL: " + urlStr + ", URL 语法错误");
+//            LOG.severe("URL: " + urlStr + ", URL 语法错误");
             return null;
         } catch (IOException e) {
-            LOG.severe("URL: " + urlStr + ", 无法访问该 URL");
+//            LOG.severe("URL: " + urlStr + ", 无法访问该 URL");
             return null;
         } finally {
             try {
